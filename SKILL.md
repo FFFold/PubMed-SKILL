@@ -2,7 +2,7 @@
 name: pubmed
 description: "Search PubMed for medical/biomedical literature via NCBI E-utilities API. Returns titles, authors, DOIs, abstracts."
 version: 2.0.0
-author: Hermes Agent
+author: FFFold
 license: MIT
 metadata:
   hermes:
