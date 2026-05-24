@@ -283,12 +283,12 @@ def efetch_abstract(pmids: List[str], api_key: Optional[str]) -> Dict[str, str]:
 
 def format_markdown(results: List[Dict[str, str]], abstracts: Optional[Dict[str, str]] = None) -> str:
     if not results:
-        return "无相关文献"
+        return "No relevant literature found."
 
     lines = []
     for item in results:
-        author_info = f"  作者: {item['first_author']}\n" if item.get("first_author") else ""
-        year_info = f"  年份: {item['year']}\n" if item.get("year") else ""
+        author_info = f"  Author: {item['first_author']}\n" if item.get("first_author") else ""
+        year_info = f"  Year: {item['year']}\n" if item.get("year") else ""
 
         block = (
             f"- Title: {item['title'] or 'N/A'}\n"
@@ -305,7 +305,7 @@ def format_markdown(results: List[Dict[str, str]], abstracts: Optional[Dict[str,
             # Truncate long abstracts to 300 chars
             if len(abstract_text) > 300:
                 abstract_text = abstract_text[:297] + "..."
-            block += f"\n  摘要: {abstract_text}"
+            block += f"\n  Abstract: {abstract_text}"
 
         lines.append(block)
 
@@ -336,7 +336,7 @@ def main() -> int:
         # Search
         pmids = esearch(args.query, api_key, args.max_results, args.sort)
         if not pmids:
-            print("无相关文献")
+            print("No relevant literature found.")
             return 0
 
         # Fetch metadata

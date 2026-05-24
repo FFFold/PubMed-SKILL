@@ -93,13 +93,13 @@ Results are cached locally in `/tmp/pubmed_cache/` for 1 hour. The cache key is 
 
 Each result includes:
 
-- **Title** — article title
-- **作者** — first author
-- **年份** — publication year
+- **Title** — Article title
+- **Author** — First author
+- **Year** — Publication year
 - **PMID** — PubMed ID
 - **DOI** — Digital Object Identifier
-- **PubMed link** — direct URL
-- **摘要** — abstract (truncated to 300 characters)
+- **PubMed link** — Direct URL
+- **Abstract** — Abstract text (truncated to 300 characters)
 
 ## Install as CLI Tool
 

@@ -1,18 +1,29 @@
 ---
 name: pubmed
-description: "Search PubMed for medical/biomedical literature via NCBI E-utilities API. Returns titles, authors, DOIs, abstracts."
-version: 2.0.0
+description: "Search PubMed for biomedical literature via NCBI E-utilities API. Returns titles, authors, DOIs, abstracts."
+version: 2.1.0
 author: FFFold
 license: MIT
+compatibility: claude-code, opencode, openclaw, hermes-agent, aws-codex
+platforms: [macos, linux, windows]
 metadata:
   hermes:
     tags: [Research, PubMed, Medical, Literature, NCBI, MeSH, Biomedical]
     related_skills: [arxiv, ocr-and-documents]
+  openclaw:
+    requires:
+      bins: [python3]
 ---
 
 # PubMed Literature Search
 
 Search and retrieve biomedical literature from PubMed via NCBI E-utilities API. Auto-converts natural language queries to PubMed syntax using MeSH Terms.
+
+## When to Use
+
+- User asks to search medical/biomedical literature
+- User wants latest research on a specific medical topic
+- User needs PMIDs, DOIs, or abstracts for academic references
 
 ## Quick Reference
 
@@ -25,7 +36,7 @@ Search and retrieve biomedical literature from PubMed via NCBI E-utilities API. 
 
 ## Workflow
 
-1. Accept user's natural language search需求 (Chinese or English).
+1. Accept user's natural language search request (Chinese or English).
 2. **Silently** convert to PubMed English query with MeSH Terms.
 3. Call `scripts/pubmed.py` with the converted query.
 4. Return results directly — no re-summarizing needed.
@@ -52,13 +63,13 @@ Without key: 3 req/sec. With key: 10 req/sec.
 ## Output Format
 
 Each result includes:
-- **Title** — 文献标题
-- **作者** — First author
-- **年份** — Publication year
+- **Title** — Article title
+- **Author** — First author
+- **Year** — Publication year
 - **PMID** — PubMed ID
 - **DOI** — Digital Object Identifier
 - **PubMed link** — Direct URL
-- **摘要** — Abstract (truncated to 300 chars)
+- **Abstract** — Abstract text (truncated to 300 chars)
 
 ## MeSH Query Syntax
 
@@ -87,26 +98,22 @@ Each result includes:
 "Nature"[Journal] AND "gene therapy"[MeSH]
 ```
 
-## Caching
-
-- Default: local cache in `/tmp/pubmed_cache/`
-- TTL: 1 hour
-- Keyed on: query + max_results + sort
-- Use `--no-cache` to bypass
-
-## Pitfalls
+## Limitations & Pitfalls
 
 ### SSL Errors with Complex MeSH Queries
 
-NCBI E-utilities occasionally returns `SSL: UNEXPECTED_EOF_WHILE_READING` for complex MeSH queries with multiple布尔 operators. Simple keyword queries are more reliable.
+NCBI E-utilities occasionally returns `SSL: UNEXPECTED_EOF_WHILE_READING` for complex MeSH queries with multiple Boolean operators. Simple keyword queries are more reliable.
 
 **Workaround**: If a complex MeSH query fails, simplify it or retry. The script handles this gracefully and returns an error message.
 
 ### Rate Limits
 
-- Without API key: 3 requests/second, 5 requests/second burst
-- With API key: 10 requests/second
-- Hitting limits returns HTTP 429 — the script does NOT auto-retry
+| API | Without Key | With Key | Auth |
+|-----|-------------|----------|------|
+| esearch/esummary | 3 req/s (5 burst) | 10 req/s | Optional |
+| efetch | 3 req/s (5 burst) | 10 req/s | Optional |
+
+HTTP 429 is returned on limit hit — the script does **not** auto-retry.
 
 ### efetch Abstract Parsing
 
@@ -119,12 +126,19 @@ The script uses regex-based XML parsing for abstracts (no external deps). Edge c
 
 `sort=date` returns the most recently indexed papers, not necessarily the most recently published. A paper published in 2024 but indexed in 2026 may appear first.
 
-## Rate Limits
+## Caching
 
-| API | Rate | Auth |
-|-----|------|------|
-| esearch/esummary | 3/sec (10/sec w/ key) | Optional |
-| efetch | 3/sec (10/sec w/ key) | Optional |
+- Default: local cache in `/tmp/pubmed_cache/`
+- TTL: 1 hour
+- Keyed on: query + max_results + sort
+- Use `--no-cache` to bypass
+
+## Verification
+
+After running a search, verify:
+- Results contain PMIDs and DOIs for cross-referencing
+- Abstract text is present and readable (no raw XML artifacts)
+- If no results are returned, try simplifying the query or removing MeSH qualifiers
 
 ## Script
 
