@@ -93,13 +93,13 @@ python scripts/pubmed.py --query '"Nature"[Journal] AND "gene therapy"[MeSH]'
 
 每条结果包含：
 
-- **Title** — 文献标题
-- **作者** — 第一作者
-- **年份** — 出版年份
+- **Title** — 文章标题
+- **Author** — 第一作者
+- **Year** — 出版年份
 - **PMID** — PubMed ID
 - **DOI** — 数字对象标识符
 - **PubMed link** — 直达链接
-- **摘要** — 摘要（截断至 300 字符）
+- **Abstract** — 摘要（截断至 300 字符）
 
 ## 安装为 CLI 工具
 
