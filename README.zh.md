@@ -26,6 +26,16 @@ PubMed-SKILL 是一个零依赖的 Python 工具，通过 NCBI E-utilities API �
 
 ## 快速开始
 
+### 安装到 AI Agent
+
+在 Agent 会话中发送以下指令即可自动安装：
+
+```
+请安装这个 SKILL：https://github.com/FFFold/PubMed-SKILL
+```
+
+### 直接运行
+
 ```bash
 python scripts/pubmed.py --query '"diabetes"[MeSH]'
 python scripts/pubmed.py --query '"CRISPR"[MeSH]' --sort date --max-results 10

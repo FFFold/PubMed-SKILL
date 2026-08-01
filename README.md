@@ -26,6 +26,16 @@ PubMed-SKILL is a zero-dependency Python tool that searches and retrieves biomed
 
 ## Quick Start
 
+### Install to AI Agent
+
+Send the following command in an Agent session:
+
+```
+Please install this SKILL: https://github.com/FFFold/PubMed-SKILL
+```
+
+### Run Directly
+
 ```bash
 python scripts/pubmed.py --query '"diabetes"[MeSH]'
 python scripts/pubmed.py --query '"CRISPR"[MeSH]' --sort date --max-results 10
