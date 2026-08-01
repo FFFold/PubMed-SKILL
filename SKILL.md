@@ -29,7 +29,7 @@ Search and retrieve biomedical literature from PubMed via NCBI E-utilities API. 
 
 | Action | Command |
 |--------|---------|
-| Basic search | `python3 scripts/pubmed.py --query '"diabetes"[MeSH]'` |
+| Basic search | `python3 scripts/pubmed.py --query 'diabetes[MeSH]'` |
 | By date | `python3 scripts/pubmed.py --query '"CRISPR"[MeSH]' --sort date` |
 | More results | `python3 scripts/pubmed.py --query '"cancer"' --max-results 10` |
 | No cache | `python3 scripts/pubmed.py --query '"vaccine"' --no-cache` |
@@ -100,6 +100,19 @@ Each result includes:
 
 ## Limitations & Pitfalls
 
+### Single-Word MeSH Term Quirk
+
+**Quoted single-word MeSH terms return 0 results** — this is a known NCBI E-utilities API behavior.
+
+| Query | Result | Reason |
+|-------|--------|--------|
+| `"diabetes"[MeSH]` | ❌ 0 hits | Single-word quoted MeSH term is rejected |
+| `diabetes[MeSH]` | ✅ 582K+ hits | No quotes — works correctly |
+| `"diabetes mellitus"[MeSH]` | ✅ 575K+ hits | Multi-word quoted MeSH term works fine |
+
+**Fix**: For single-word MeSH terms, omit the quotes: `diabetes[MeSH]` not `"diabetes"[MeSH]`.
+For multi-word MeSH terms, quotes are required: `"diabetes mellitus"[MeSH]`.
+
 ### SSL Errors with Complex MeSH Queries
 
 NCBI E-utilities occasionally returns `SSL: UNEXPECTED_EOF_WHILE_READING` for complex MeSH queries with multiple Boolean operators. Simple keyword queries are more reliable.
@@ -149,5 +162,5 @@ Use `scripts/pubmed.py` for the full workflow. No external dependencies — Pyth
 cp scripts/pubmed.py /usr/local/bin/pubmed-search
 
 # Or run directly
-python3 scripts/pubmed.py --query '"diabetes"[MeSH]' --sort date --max-results 5
+python3 scripts/pubmed.py --query 'diabetes[MeSH]' --sort date --max-results 5
 ```
