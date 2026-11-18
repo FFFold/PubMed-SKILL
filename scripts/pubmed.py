@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import time
+from html import unescape
 from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.error import HTTPError, URLError
@@ -21,6 +22,9 @@ from urllib.request import urlopen
 EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 ENV_KEY_NAMES = ("NCBI_API_KEY", "EUTILS_API_KEY", "API_KEY")
 DEFAULT_MAX_RESULTS = 5
+DEFAULT_ABSTRACT_CHARS = 300
+TRUNCATE_NOTICE = "... (truncated - full abstract: --pmid {pmid})"
+MAX_PMIDS = 20
 TIMEOUT_SECONDS = 30
 CACHE_DIR = Path("/tmp/pubmed_cache")
 CACHE_TTL_SECONDS = 3600  # 1 hour
@@ -36,10 +40,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Search PubMed and return the top most relevant results."
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument(
         "--query",
-        required=True,
         help='PubMed-formatted English query, e.g. ""long covid"[MeSH] AND 2025[DP]"',
+    )
+    mode.add_argument(
+        "--pmid",
+        help=f"One or more PMIDs (comma or space separated, max {MAX_PMIDS}) to fetch full abstracts for.",
     )
     parser.add_argument(
         "--api-key",
@@ -62,6 +70,12 @@ def parse_args() -> argparse.Namespace:
         "--no-cache",
         action="store_true",
         help="Disable local result caching.",
+    )
+    parser.add_argument(
+        "--full-abstract",
+        dest="full_abstract",
+        action="store_true",
+        help="Return abstracts untruncated instead of the default 300 characters.",
     )
     return parser.parse_args()
 
@@ -173,6 +187,24 @@ def _cache_set(key: str, results: List[Dict[str, str]]) -> None:
 # PubMed API calls
 # ---------------------------------------------------------------------------
 
+def parse_pmids(raw: str) -> List[str]:
+    """Split, validate and deduplicate a PMID list. Raises ValueError."""
+    pmids: List[str] = []
+    for token in re.split(r"[,\s]+", raw.strip()):
+        if not token:
+            continue
+        if not token.isdigit():
+            raise ValueError(f"Invalid PMID: {token!r} (digits only)")
+        if token not in pmids:
+            pmids.append(token)
+
+    if not pmids:
+        raise ValueError("No PMID provided")
+    if len(pmids) > MAX_PMIDS:
+        raise ValueError(f"Too many PMIDs: {len(pmids)} (max {MAX_PMIDS})")
+    return pmids
+
+
 def esearch(query: str, api_key: Optional[str], max_results: int, sort: str) -> List[str]:
     params: Dict[str, str] = {
         "db": "pubmed",
@@ -206,6 +238,9 @@ def esummary(pmids: List[str], api_key: Optional[str]) -> List[Dict[str, str]]:
     items: List[Dict[str, str]] = []
     for pmid in pmids:
         entry = result.get(pmid, {})
+        # Skip unknown PMIDs / malformed entries (esummary reports them as errors)
+        if entry.get("error") or not entry.get("title"):
+            continue
 
         # Extract DOI
         doi = ""
@@ -266,13 +301,21 @@ def efetch_abstract(pmids: List[str], api_key: Optional[str]) -> Dict[str, str]:
             continue
         pmid = pmid_match.group(1)
 
-        # Collect all AbstractText elements
-        abstract_parts = re.findall(r"<AbstractText[^>]*>(.*?)</AbstractText>", article, re.DOTALL)
-        if abstract_parts:
-            abstract = " ".join(part.strip() for part in abstract_parts)
-            # Strip any remaining XML tags
-            abstract = re.sub(r"<[^>]+>", "", abstract).strip()
-            abstracts[pmid] = abstract
+        # Collect all AbstractText elements, keeping section labels
+        chunks: List[str] = []
+        for attrs, raw_text in re.findall(
+            r"<AbstractText([^>]*)>(.*?)</AbstractText>", article, re.DOTALL
+        ):
+            text = unescape(re.sub(r"<[^>]+>", "", raw_text)).strip()
+            if not text:
+                continue
+
+            label_match = re.search(r"Label=[\"']([^\"']*)[\"']", attrs)
+            label = label_match.group(1).strip() if label_match else ""
+            chunks.append(f"{label}: {text}" if label else text)
+
+        if chunks:
+            abstracts[pmid] = " ".join(chunks)
 
     return abstracts
 
@@ -281,7 +324,11 @@ def efetch_abstract(pmids: List[str], api_key: Optional[str]) -> Dict[str, str]:
 # Output formatting
 # ---------------------------------------------------------------------------
 
-def format_markdown(results: List[Dict[str, str]], abstracts: Optional[Dict[str, str]] = None) -> str:
+def format_markdown(
+    results: List[Dict[str, str]],
+    abstracts: Optional[Dict[str, str]] = None,
+    abstract_limit: Optional[int] = DEFAULT_ABSTRACT_CHARS,
+) -> str:
     if not results:
         return "No relevant literature found."
 
@@ -301,11 +348,15 @@ def format_markdown(results: List[Dict[str, str]], abstracts: Optional[Dict[str,
 
         # Append abstract if available
         if abstracts and item["pmid"] in abstracts:
-            abstract_text = abstracts[item["pmid"]]
-            # Truncate long abstracts to 300 chars
-            if len(abstract_text) > 300:
-                abstract_text = abstract_text[:297] + "..."
-            block += f"\n  Abstract: {abstract_text}"
+            abstract_text = abstracts[item["pmid"]].strip()
+            if abstract_text:
+                if abstract_limit is not None and len(abstract_text) > abstract_limit:
+                    notice = TRUNCATE_NOTICE.format(pmid=item["pmid"])
+                    if abstract_limit <= len(notice):
+                        abstract_text = abstract_text[:abstract_limit]
+                    else:
+                        abstract_text = abstract_text[: abstract_limit - len(notice)] + notice
+                block += f"\n  Abstract: {abstract_text}"
 
         lines.append(block)
 
@@ -319,8 +370,27 @@ def format_markdown(results: List[Dict[str, str]], abstracts: Optional[Dict[str,
 def main() -> int:
     args = parse_args()
     api_key = resolve_api_key(args.api_key)
+    abstract_limit = None if args.full_abstract else DEFAULT_ABSTRACT_CHARS
 
     try:
+        # Detail mode: fetch full abstracts for explicit PMIDs (no search, no cache)
+        if args.pmid:
+            pmids = parse_pmids(args.pmid)
+            results = esummary(pmids, api_key)
+
+            found = {item["pmid"] for item in results}
+            missing = [pmid for pmid in pmids if pmid not in found]
+            if missing:
+                print(f"PMID(s) not found: {', '.join(missing)}", file=sys.stderr)
+
+            if not results:
+                print("No relevant literature found.")
+                return 0
+
+            abstracts = efetch_abstract([item["pmid"] for item in results], api_key)
+            print(format_markdown(results, abstracts, abstract_limit=None))
+            return 0
+
         # Check cache (unless disabled)
         cache_key = None
         if not args.no_cache:
@@ -330,7 +400,7 @@ def main() -> int:
                 # Still need abstracts for cached results
                 pmids = [r["pmid"] for r in cached]
                 abstracts = efetch_abstract(pmids, api_key)
-                print(format_markdown(cached, abstracts))
+                print(format_markdown(cached, abstracts, abstract_limit=abstract_limit))
                 return 0
 
         # Search
@@ -349,7 +419,7 @@ def main() -> int:
         if cache_key and not args.no_cache:
             _cache_set(cache_key, results)
 
-        print(format_markdown(results, abstracts))
+        print(format_markdown(results, abstracts, abstract_limit=abstract_limit))
         return 0
 
     except Exception as exc:
