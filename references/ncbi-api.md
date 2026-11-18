@@ -128,7 +128,7 @@ HTTP 429 = rate limited. No auto-retry in the script.
 
 3. **MeSH auto-explosion**: `"diabetes"[MeSH]` automatically includes all narrower terms (diabetes mellitus type 1, type 2, etc.). Use `"diabetes"[MeSH:NoExp]` to disable.
 
-4. **Empty abstracts**: Some records (especially older ones) have no abstract. The script returns empty string for these.
+4. **Empty abstracts**: Some records (especially older ones, or editorials/letters) have no abstract. The script omits the `Abstract:` line for them; `--pmid` mode lists such PMIDs on stderr.
 
 5. **Retraction notices**: Retracted papers still appear in results. Check for "Retraction of:" in the title or "Publication Type" field containing "Retraction".
 

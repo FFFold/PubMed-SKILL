@@ -194,7 +194,7 @@ def parse_pmids(raw: str) -> List[str]:
     for token in re.split(r"[,\s]+", raw.strip()):
         if not token:
             continue
-        if not token.isdigit():
+        if not re.fullmatch(r"[0-9]+", token):
             raise ValueError(f"Invalid PMID: {token!r} (digits only)")
         if token not in pmids:
             pmids.append(token)
@@ -239,9 +239,6 @@ def esummary(pmids: List[str], api_key: Optional[str]) -> List[Dict[str, str]]:
     items: List[Dict[str, str]] = []
     for pmid in pmids:
         entry = result.get(pmid, {})
-        # Skip unknown PMIDs / malformed entries (esummary reports them as errors)
-        if entry.get("error") or not entry.get("title"):
-            continue
 
         # Extract DOI
         doi = ""
@@ -270,8 +267,13 @@ def esummary(pmids: List[str], api_key: Optional[str]) -> List[Dict[str, str]]:
     return items
 
 
-def efetch_abstract(pmids: List[str], api_key: Optional[str]) -> Dict[str, str]:
-    """Fetch abstracts for given PMIDs. Returns {pmid: abstract_text}."""
+def efetch_abstract(
+    pmids: List[str], api_key: Optional[str], strict: bool = False
+) -> Dict[str, str]:
+    """Fetch abstracts for given PMIDs. Returns {pmid: abstract_text}.
+
+    Transport failures return {} silently, or raise RuntimeError when strict.
+    """
     if not pmids:
         return {}
 
@@ -288,7 +290,9 @@ def efetch_abstract(pmids: List[str], api_key: Optional[str]) -> Dict[str, str]:
     try:
         with urlopen(url, timeout=TIMEOUT_SECONDS) as response:
             xml_text = response.read().decode("utf-8")
-    except Exception:
+    except Exception as exc:
+        if strict:
+            raise RuntimeError(f"PubMed abstract fetch failed: {exc}") from exc
         return {}
 
     # Simple XML parsing (no external deps)
@@ -375,9 +379,11 @@ def main() -> int:
 
     try:
         # Detail mode: fetch full abstracts for explicit PMIDs (no search, no cache)
-        if args.pmid:
+        if args.pmid is not None:
             pmids = parse_pmids(args.pmid)
             results = esummary(pmids, api_key)
+            # esummary reports unknown PMIDs as error entries with an empty title
+            results = [item for item in results if item["title"]]
 
             found = {item["pmid"] for item in results}
             missing = [pmid for pmid in pmids if pmid not in found]
@@ -388,7 +394,16 @@ def main() -> int:
                 print("No relevant literature found.")
                 return 0
 
-            abstracts = efetch_abstract([item["pmid"] for item in results], api_key)
+            abstracts = efetch_abstract(
+                [item["pmid"] for item in results], api_key, strict=True
+            )
+            without_abstract = [item["pmid"] for item in results if item["pmid"] not in abstracts]
+            if without_abstract:
+                print(
+                    f"No abstract available for PMID(s): {', '.join(without_abstract)}",
+                    file=sys.stderr,
+                )
+
             print(format_markdown(results, abstracts, abstract_limit=None))
             return 0
 

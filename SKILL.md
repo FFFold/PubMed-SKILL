@@ -56,6 +56,8 @@ Search and retrieve biomedical literature from PubMed via NCBI E-utilities API. 
 | `--full-abstract` | No | false | Return abstracts untruncated |
 | `--no-cache` | No | false | Disable local result caching |
 
+In `--pmid` mode, `--sort`, `--max-results` and `--full-abstract` are accepted but have no effect.
+
 ## API Key Resolution
 
 1. `--api-key` CLI argument
@@ -74,7 +76,7 @@ Each result includes:
 - **PMID** — PubMed ID
 - **DOI** — Digital Object Identifier
 - **PubMed link** — Direct URL
-- **Abstract** — Abstract text (truncated to 300 chars by default; full text via `--pmid` or `--full-abstract`). Section labels such as `BACKGROUND:` / `METHODS:` are preserved.
+- **Abstract** — Abstract text (truncated to 300 chars by default, the `--pmid` hint included; full text via `--pmid` or `--full-abstract`). Section labels such as `BACKGROUND:` / `METHODS:` are preserved.
 
 ## MeSH Query Syntax
 
@@ -136,11 +138,12 @@ HTTP 429 is returned on limit hit — the script does **not** auto-retry.
 ### efetch Abstract Parsing
 
 The script uses regex-based XML parsing for abstracts (no external deps). Edge cases:
-- Articles with no abstract return empty string
+- Articles with no abstract produce no `Abstract:` line; `--pmid` mode lists those PMIDs on stderr
 - Non-English abstracts are included as-is
 - Structured abstracts keep their `Label` prefixes (`BACKGROUND: ... METHODS: ...`)
 - Inline markup is stripped and XML entities are decoded
 - Unknown PMIDs are reported on stderr as `PMID(s) not found: ...`
+- In `--pmid` mode a transport failure is an error (exit 1), not a silently empty abstract
 
 ### Date Sorting Quirk
 

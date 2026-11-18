@@ -104,7 +104,7 @@ python scripts/pubmed.py --pmid 39466269,38839268
 
 ## Caching
 
-Results are cached locally in `/tmp/pubmed_cache/` for 1 hour. The cache key is derived from the query, max results, and sort order. Use `--no-cache` to bypass.
+Results are cached locally in `/tmp/pubmed_cache/` for 1 hour. The cache key is derived from the query, max results, and sort order. Use `--no-cache` to bypass. `--pmid` bypasses the cache entirely — it always queries NCBI.
 
 ## Output Format
 
@@ -116,7 +116,7 @@ Each result includes:
 - **PMID** — PubMed ID
 - **DOI** — Digital Object Identifier
 - **PubMed link** — Direct URL
-- **Abstract** — Abstract text (truncated to 300 characters by default; full text via `--pmid` or `--full-abstract`). Section labels such as `BACKGROUND:` / `METHODS:` are preserved.
+- **Abstract** — Abstract text (truncated to 300 characters by default, hint included; full text via `--pmid` or `--full-abstract`). Section labels such as `BACKGROUND:` / `METHODS:` are preserved.
 
 ## Install as CLI Tool
 
