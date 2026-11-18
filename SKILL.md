@@ -1,7 +1,7 @@
 ---
 name: pubmed
 description: "Search PubMed for biomedical literature via NCBI E-utilities API. Returns titles, authors, DOIs, abstracts."
-version: 2.1.0
+version: 2.2.0
 author: FFFold
 license: MIT
 compatibility: claude-code, opencode, openclaw, hermes-agent, aws-codex
@@ -32,6 +32,8 @@ Search and retrieve biomedical literature from PubMed via NCBI E-utilities API. 
 | Basic search | `python3 scripts/pubmed.py --query 'diabetes[MeSH]'` |
 | By date | `python3 scripts/pubmed.py --query '"CRISPR"[MeSH]' --sort date` |
 | More results | `python3 scripts/pubmed.py --query '"cancer"' --max-results 10` |
+| Full abstract by PMID | `python3 scripts/pubmed.py --pmid 39466269` |
+| Full abstracts in search | `python3 scripts/pubmed.py --query '"cancer"' --full-abstract` |
 | No cache | `python3 scripts/pubmed.py --query '"vaccine"' --no-cache` |
 
 ## Workflow
@@ -39,16 +41,19 @@ Search and retrieve biomedical literature from PubMed via NCBI E-utilities API. 
 1. Accept user's natural language search request (Chinese or English).
 2. **Silently** convert to PubMed English query with MeSH Terms.
 3. Call `scripts/pubmed.py` with the converted query.
-4. Return results directly — no re-summarizing needed.
+4. Return results directly — no re-summarizing needed. Abstracts are truncated to 300 chars for triage.
+5. If the user wants one paper's complete abstract, re-run with `--pmid <PMID>`. If they want every abstract in full, re-run the search with `--full-abstract`.
 
 ## Input Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `--query` | Yes | — | PubMed-formatted English query |
+| `--query` | One of | — | PubMed-formatted English query |
+| `--pmid` | One of | — | PMID(s) to fetch full abstracts for (comma/space separated, max 20). Mutually exclusive with `--query` |
 | `--api-key` | No | auto | NCBI API key (auto-resolved from env/.env) |
 | `--max-results` | No | 5 | Number of results to return |
 | `--sort` | No | relevance | `relevance` or `date` (newest first) |
+| `--full-abstract` | No | false | Return abstracts untruncated |
 | `--no-cache` | No | false | Disable local result caching |
 
 ## API Key Resolution
@@ -69,7 +74,7 @@ Each result includes:
 - **PMID** — PubMed ID
 - **DOI** — Digital Object Identifier
 - **PubMed link** — Direct URL
-- **Abstract** — Abstract text (truncated to 300 chars)
+- **Abstract** — Abstract text (truncated to 300 chars by default; full text via `--pmid` or `--full-abstract`). Section labels such as `BACKGROUND:` / `METHODS:` are preserved.
 
 ## MeSH Query Syntax
 
@@ -133,7 +138,9 @@ HTTP 429 is returned on limit hit — the script does **not** auto-retry.
 The script uses regex-based XML parsing for abstracts (no external deps). Edge cases:
 - Articles with no abstract return empty string
 - Non-English abstracts are included as-is
-- Structured abstracts (CONCLUSIONS:, METHODS:) are concatenated
+- Structured abstracts keep their `Label` prefixes (`BACKGROUND: ... METHODS: ...`)
+- Inline markup is stripped and XML entities are decoded
+- Unknown PMIDs are reported on stderr as `PMID(s) not found: ...`
 
 ### Date Sorting Quirk
 
@@ -145,6 +152,7 @@ The script uses regex-based XML parsing for abstracts (no external deps). Edge c
 - TTL: 1 hour
 - Keyed on: query + max_results + sort
 - Use `--no-cache` to bypass
+- `--pmid` bypasses the cache entirely — it always queries NCBI
 
 ## Verification
 

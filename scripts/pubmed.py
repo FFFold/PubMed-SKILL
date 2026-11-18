@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """PubMed literature search tool using NCBI E-utilities API.
 
-Fetches top results by relevance or date, returns titles/PMIDs/DOIs/authors/years.
+Two modes: search by query (titles/PMIDs/DOIs/authors/years plus abstracts,
+truncated for triage) and fetch full abstracts for explicit PMIDs.
 """
 
 import argparse
@@ -38,7 +39,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Search PubMed and return the top most relevant results."
+        description="Search PubMed, or fetch full abstracts for specific PMIDs."
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument(

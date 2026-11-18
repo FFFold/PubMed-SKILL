@@ -44,16 +44,20 @@ python scripts/pubmed.py --query '"CRISPR"[MeSH]' --sort date --max-results 10
 ## Usage
 
 ```
-python scripts/pubmed.py --query <query> [options]
+python scripts/pubmed.py (--query <query> | --pmid <ids>) [options]
 ```
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `--query` | Yes | — | PubMed-formatted query string |
+| `--query` | One of | — | PubMed-formatted query string |
+| `--pmid` | One of | — | PMID(s) to fetch full abstracts for (comma/space separated, max 20) |
 | `--api-key` | No | auto-resolved | NCBI API key |
 | `--max-results` | No | 5 | Number of results to return |
 | `--sort` | No | `relevance` | Sort order: `relevance` or `date` |
+| `--full-abstract` | No | `false` | Return abstracts untruncated |
 | `--no-cache` | No | `false` | Bypass local result caching |
+
+`--query` and `--pmid` are mutually exclusive.
 
 ## API Key
 
@@ -93,6 +97,9 @@ python scripts/pubmed.py --query 'artificial intelligence in radiology'
 
 # Specific journal
 python scripts/pubmed.py --query '"Nature"[Journal] AND "gene therapy"[MeSH]'
+
+# Full abstract for specific papers
+python scripts/pubmed.py --pmid 39466269,38839268
 ```
 
 ## Caching
@@ -109,7 +116,7 @@ Each result includes:
 - **PMID** — PubMed ID
 - **DOI** — Digital Object Identifier
 - **PubMed link** — Direct URL
-- **Abstract** — Abstract text (truncated to 300 characters)
+- **Abstract** — Abstract text (truncated to 300 characters by default; full text via `--pmid` or `--full-abstract`). Section labels such as `BACKGROUND:` / `METHODS:` are preserved.
 
 ## Install as CLI Tool
 

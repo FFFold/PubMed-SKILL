@@ -44,16 +44,20 @@ python scripts/pubmed.py --query '"CRISPR"[MeSH]' --sort date --max-results 10
 ## 使用说明
 
 ```
-python scripts/pubmed.py --query <查询语句> [选项]
+python scripts/pubmed.py (--query <查询语句> | --pmid <PMID>) [选项]
 ```
 
 | 参数 | 必填 | 默认值 | 说明 |
 |----------|----------|---------|-------------|
-| `--query` | 是 | — | PubMed 格式查询语句 |
+| `--query` | 二选一 | — | PubMed 格式查询语句 |
+| `--pmid` | 二选一 | — | 按 PMID 取完整摘要（逗号或空格分隔，最多 20 个） |
 | `--api-key` | 否 | 自动解析 | NCBI API 密钥 |
 | `--max-results` | 否 | 5 | 返回结果数量 |
 | `--sort` | 否 | `relevance` | 排序方式：`relevance`（相关度）或 `date`（日期） |
+| `--full-abstract` | 否 | `false` | 搜索时返回完整摘要 |
 | `--no-cache` | 否 | `false` | 禁用本地缓存 |
+
+`--query` 与 `--pmid` 互斥。
 
 ## API 密钥
 
@@ -93,6 +97,9 @@ python scripts/pubmed.py --query 'artificial intelligence in radiology'
 
 # 特定期刊
 python scripts/pubmed.py --query '"Nature"[Journal] AND "gene therapy"[MeSH]'
+
+# 指定文献的完整摘要
+python scripts/pubmed.py --pmid 39466269,38839268
 ```
 
 ## 缓存
@@ -109,7 +116,7 @@ python scripts/pubmed.py --query '"Nature"[Journal] AND "gene therapy"[MeSH]'
 - **PMID** — PubMed ID
 - **DOI** — 数字对象标识符
 - **PubMed link** — 直达链接
-- **Abstract** — 摘要（截断至 300 字符）
+- **Abstract** — 摘要（默认截断至 300 字符；用 `--pmid` 或 `--full-abstract` 取完整版。`BACKGROUND:`、`METHODS:` 等段落标签会保留）
 
 ## 安装为 CLI 工具
 
